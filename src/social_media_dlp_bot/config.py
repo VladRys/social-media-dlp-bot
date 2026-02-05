@@ -7,7 +7,7 @@ class Config:
     BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
     DOWNLOADS_FOLDER = "downloads"
     YDLP_OPTH_OUT_PATH = f"src/social_media_dlp_bot/{DOWNLOADS_FOLDER}/%(title)s.%(ext)s"
-    ydl_opts = {
+    YDLP_ydlp_opts = {
             "format": "best",
             "merge_output_format": "mp4",
             "outtmpl": YDLP_OPTH_OUT_PATH,
@@ -24,6 +24,18 @@ class Config:
                 lambda d: print(d)  # показывает прогресс
             ]
         }
+    
+    KICK_ydl_opts = {
+    "format": "best",
+    "outtmpl": YDLP_OPTH_OUT_PATH,
+    "merge_output_format": "mp4",
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+        "Accept": "*/*",
+        "Referer": "https://kick.com/",
+    },
+}
+    
     SUPPORTED_LINKS = {
     "youtube": [
         # Обычные видео

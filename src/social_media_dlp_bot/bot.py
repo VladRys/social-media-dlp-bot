@@ -4,6 +4,7 @@ from telebot.async_telebot import AsyncTeleBot
 from config import cfg
 from downloader import DownloadService
 import re
+from exceptions import WrongFormatException
 
 class TelegramBot:
     def __init__(self, logger, service: DownloadService) -> None:
@@ -26,7 +27,7 @@ class TelegramBot:
                     if re.match(pattern, link):
                         return platform
                     
-            return
+            raise WrongFormatException
 
         @self.bot.message_handler(func=lambda message: True)
         async def link_handler(message) -> None:
@@ -34,8 +35,8 @@ class TelegramBot:
             link = str(message.text)
             platform = await filter_support_link(link)
             if platform:
-                await self.bot.send_message(message.chat.id, "Обрабатываю запрос....")
                 self.logger.info(f"Started handling request from user: {user} link: {link}")
+                loading_status_message = await self.bot.send_message(message.chat.id, "Обрабатываю запрос....")
                 try:
                     video = self.service.download_with_service(platform, link)
 
@@ -45,13 +46,15 @@ class TelegramBot:
                         os.remove(video)
                         return
                     
+                except WrongFormatException:
+                    await self.bot.send_message(message.chat.id, cfg.UNSUPPORTED_PLATFORM_MESSAGE)
+
                 except Exception as e:
                     self.logger.error(f"Error while handling request from user: {user} link: {link}: {e}")
                     await self.bot.send_message(message.chat.id, cfg.ERROR_MESSAGE)
-            
-            await self.bot.send_message(message.chat.id, cfg.UNSUPPORTED_PLATFORM_MESSAGE)
-            return
 
+                finally:
+                    await self.bot.delete_message(message.chat.id, loading_status_message.message_id)
         
     async def polling(self):
         await self.bot.polling(non_stop=True)    
