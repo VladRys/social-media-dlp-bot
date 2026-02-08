@@ -1,61 +1,83 @@
+import re
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message
+from aiogram.filters import CommandStart
 import os
-from telebot import types
-from telebot.async_telebot import AsyncTeleBot
 from config import cfg
 from downloader import DownloadService
-import re
 from exceptions import WrongFormatException
+from services.file_senders import FileSenderFactory
+
 
 class TelegramBot:
-    def __init__(self, logger, service: DownloadService) -> None:
+    def __init__(
+        self,
+        logger,
+        bot: Bot,
+        dispatcher: Dispatcher,
+        service: DownloadService,
+        sender: FileSenderFactory,
+    ) -> None:
         self.logger = logger
-        self.bot = AsyncTeleBot(cfg.BOT_TOKEN)
+        self.bot = bot
+        self.dp = dispatcher
         self.service = service
+        self.sender = sender
 
         self._register_handlers()
         self.logger.info("Bot status: Online! Handlers: registered!")
 
     def _register_handlers(self):
-        @self.bot.message_handler(commands=["start"])
-        async def start(message: types.Message) -> types.Message:
-            return await self.bot.send_message(message.chat.id, "Привет!")
-        
+        self.dp.message.register(self.start, CommandStart())
+        self.dp.message.register(self.link_handler, F.text)
 
-        async def filter_support_link(link: str) -> str | None:
-            for platform, patterns in cfg.SUPPORTED_LINKS.items():
-                for pattern in patterns:
-                    if re.match(pattern, link):
-                        return platform
-                    
-            raise WrongFormatException
+    async def start(self, message: Message):
+        await message.answer("Привет! Отправь ссылку на видео.")
 
-        @self.bot.message_handler(func=lambda message: True)
-        async def link_handler(message) -> None:
-            user = message.from_user.username or message.from_user.id # Data for logs
-            link = str(message.text)
-            platform = await filter_support_link(link)
-            if platform:
-                self.logger.info(f"Started handling request from user: {user} link: {link}")
-                loading_status_message = await self.bot.send_message(message.chat.id, "Обрабатываю запрос....")
-                try:
-                    video = self.service.download_with_service(platform, link)
+    async def _detect_platform(self, link: str) -> str:
+        """Проверка платформы по ссылке"""
+        for platform, patterns in cfg.SUPPORTED_LINKS.items():
+            for pattern in patterns:
+                if re.match(pattern, link):
+                    return platform
+        raise WrongFormatException
 
-                    with open(video, "rb") as f:
-                        await self.bot.send_video(message.chat.id, video=f)
-                        self.logger.info(f"[TELEGRAM] Video: {f.name} was successfuly sended to user {user}!")
-                        os.remove(video)
-                        return
-                    
-                except WrongFormatException:
-                    await self.bot.send_message(message.chat.id, cfg.UNSUPPORTED_PLATFORM_MESSAGE)
+    async def link_handler(self, message: Message):
+        link = message.text
+        user = message.from_user.username or message.from_user.id
 
-                except Exception as e:
-                    self.logger.error(f"Error while handling request from user: {user} link: {link}: {e}")
-                    await self.bot.send_message(message.chat.id, cfg.ERROR_MESSAGE)
+        try:
+            platform = await self._detect_platform(link)
+        except WrongFormatException:
+            await message.answer(cfg.UNSUPPORTED_PLATFORM_MESSAGE)
+            return
 
-                finally:
-                    await self.bot.delete_message(message.chat.id, loading_status_message.message_id)
-        
+        self.logger.info(f"Started handling request from user: {user} link: {link}")
+        status = await message.answer("Обрабатываю запрос...")
+
+        try:
+            # download_with_service теперь возвращает объект DownloadResult
+            result = self.service.download_with_service(platform, link)
+            video_path = result.path  # Path к файлу
+
+            sender = self.sender.get_sender(video_path)
+            self.logger.info(f"Selected sender: {sender.__class__.__name__}")
+
+            # Отправка файла
+            await sender.send(message, video_path)
+            os.remove(video_path)
+            self.logger.info(f"Видео пользователя: {user} успешно отправлено.")
+
+        except Exception as e:
+            self.logger.exception(
+                f"Error while handling request from user: {user} link: {link}"
+            )
+            await message.answer(cfg.ERROR_MESSAGE)
+
+        finally:
+            await status.delete()
+
+
     async def polling(self):
-        await self.bot.polling(non_stop=True)    
-
+        """Запуск long-polling"""
+        await self.dp.start_polling(self.bot)

@@ -1,22 +1,39 @@
 from yt_dlp import YoutubeDL
 from config import cfg
 
+from dataclasses import dataclass
+from pathlib import Path
+
+from dataclasses import dataclass
+from pathlib import Path
+
+@dataclass(slots=True)
+class DownloadResult:
+    path: Path
+    title: str
+    size: int 
+
 class Downloader:
-    def download_video(self, url: str):
-        raise NotImplementedError
+    def download_video(self, url: str) -> DownloadResult:
+        return DownloadResult
 
 class YdlpDownloader(Downloader):
     def __init__(self, logger):
         self.ydl_opts = cfg.YDLP_ydlp_opts
         self.logger = logger
 
-    def download_video(self, url: str):
+    def download_video(self, url: str)  -> DownloadResult | None:
         try:
             self.logger.info(f"[YT] Starting download video: {url}")
             with YoutubeDL(self.ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+                path = Path(ydl.prepare_filename(info))
                 self.logger.info(f"[YT] Video: {url} was successfully downloaded")
-                return ydl.prepare_filename(info)
+                return DownloadResult(
+                    path=path,
+                    title=info.get("title", path.name),
+                    size=path.stat().st_size
+                )
         
         except Exception as e:
             self.logger.error(f"[YT] Error occurred while downloading video: {e}")

@@ -6,13 +6,14 @@ authors = [
     {name = "VladRys",email = "rysichvlad0910@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.15"
 dependencies = [
     "yt-dlp (>=2026.2.4,<2027.0.0)",
     "dotenv (>=0.9.9,<0.10.0)",
-    "telebot (>=0.0.5,<0.0.6)",
     "curl-cffi (>=0.14.0,<0.15.0)",
-    "aiohttp (>=3.13.3,<4.0.0)"
+    "aiohttp (>=3.13.3,<4.0.0)",
+    "telethon (>=1.42.0,<2.0.0)",
+    "aiogram (>=3.24.0,<4.0.0)"
 ]
 
 [tool.poetry]

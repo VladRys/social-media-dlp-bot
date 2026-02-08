@@ -5,10 +5,16 @@ load_dotenv()
 
 class Config:
     BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
+    TG_API_ID = os.getenv("TG_API_ID")
+    TG_API_HASH = os.getenv("TG_API_HASH")
+    USE_LOCAL_API: bool = True
+    FILE_SERVER_PORT: str| None = os.getenv("FILE_SERVER_PORT")
+    LOCAL_BOT_API_URL = os.getenv("LOCAL_BOT_API_URL")
+    EXTERNAL_BASE_URL: str | None = os.getenv("EXTERNAL_BASE_URL")  
     DOWNLOADS_FOLDER = "downloads"
     YDLP_OPTH_OUT_PATH = f"src/social_media_dlp_bot/{DOWNLOADS_FOLDER}/%(title)s.%(ext)s"
     YDLP_ydlp_opts = {
-            "format": "best",
+            "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4][abr<=128]",
             "merge_output_format": "mp4",
             "outtmpl": YDLP_OPTH_OUT_PATH,
             "quiet": False,
@@ -20,8 +26,12 @@ class Config:
                     "Chrome/120.0.0.0 Safari/537.36"
                 )
             },
+            "postprocessors": [{
+                "key": "FFmpegVideoRemuxer",
+                "preferedformat": "mp4"
+            }],
             "progress_hooks": [
-                lambda d: print(d)  # показывает прогресс
+                lambda d: print(d)  
             ]
         }
     
