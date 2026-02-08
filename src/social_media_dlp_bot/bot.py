@@ -35,7 +35,6 @@ class TelegramBot:
         await message.answer("Привет! Отправь ссылку на видео.")
 
     async def _detect_platform(self, link: str) -> str:
-        """Проверка платформы по ссылке"""
         for platform, patterns in cfg.SUPPORTED_LINKS.items():
             for pattern in patterns:
                 if re.match(pattern, link):
@@ -56,14 +55,12 @@ class TelegramBot:
         status = await message.answer("Обрабатываю запрос...")
 
         try:
-            # download_with_service теперь возвращает объект DownloadResult
             result = self.service.download_with_service(platform, link)
-            video_path = result.path  # Path к файлу
+            video_path = result.path 
 
             sender = self.sender.get_sender(video_path)
             self.logger.info(f"Selected sender: {sender.__class__.__name__}")
 
-            # Отправка файла
             await sender.send(message, video_path)
             os.remove(video_path)
             self.logger.info(f"Видео пользователя: {user} успешно отправлено.")
@@ -79,5 +76,4 @@ class TelegramBot:
 
 
     async def polling(self):
-        """Запуск long-polling"""
         await self.dp.start_polling(self.bot)
